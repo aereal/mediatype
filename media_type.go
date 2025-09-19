@@ -1,6 +1,8 @@
 package mediatype
 
 import (
+	"encoding"
+	"fmt"
 	"mime"
 	"strings"
 )
@@ -9,16 +11,25 @@ import (
 //
 // If it is a valid media type, returns concrete MediaType value.
 func Parse(s string) (*MediaType, error) {
-	mt, params, err := mime.ParseMediaType(s)
-	if err != nil {
+	mt := new(MediaType)
+	if err := unmarshal(mt, s); err != nil {
 		return nil, err
 	}
-	primary, sub, _ := strings.Cut(mt, "/")
-	return &MediaType{
+	return mt, nil
+}
+
+func unmarshal(mt *MediaType, s string) error {
+	parsed, params, err := mime.ParseMediaType(s)
+	if err != nil {
+		return err
+	}
+	primary, sub, _ := strings.Cut(parsed, "/")
+	*mt = MediaType{
 		Type:       primary,
 		SubType:    SubType(sub),
 		Parameters: params,
-	}, nil
+	}
+	return nil
 }
 
 // MediaType is an identifier of resource types as described in [RFC 2046].
@@ -37,9 +48,27 @@ type MediaType struct {
 	Parameters map[string]string
 }
 
+var (
+	_ fmt.Stringer             = (*MediaType)(nil)
+	_ encoding.TextMarshaler   = (*MediaType)(nil)
+	_ encoding.TextUnmarshaler = (*MediaType)(nil)
+)
+
 // Equal returns whether two media types are equal.
 func (mt *MediaType) Equal(other *MediaType) bool {
 	return mt.Type == other.Type && mt.SubType == other.SubType
+}
+
+func (mt *MediaType) String() string {
+	return mime.FormatMediaType(mt.Type+"/"+mt.SubType.String(), mt.Parameters)
+}
+
+func (mt *MediaType) MarshalText() ([]byte, error) {
+	return []byte(mt.String()), nil
+}
+
+func (mt *MediaType) UnmarshalText(b []byte) error {
+	return unmarshal(mt, string(b))
 }
 
 // SubType is a subtype part of the [MediaType].
@@ -62,3 +91,5 @@ func (st SubType) Suffix() (string, bool) {
 	_, suffix, hasSuffix := strings.Cut(string(st), "+")
 	return suffix, hasSuffix && suffix != ""
 }
+
+func (st SubType) String() string { return string(st) }

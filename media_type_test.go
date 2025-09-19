@@ -1,12 +1,49 @@
 package mediatype_test
 
 import (
+	"encoding/json"
 	"errors"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/aereal/mediatype"
 )
+
+func TestMediaType_marshaling(t *testing.T) {
+	t.Parallel()
+
+	repr := "text/svg+xml; charset=utf-8"
+	mt, err := mediatype.Parse(repr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jv, err := json.Marshal(mt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantQuoted := strconv.Quote(repr)
+	if s := string(jv); s != wantQuoted {
+		t.Errorf("marshaled text differs:\n\twant: %q\n\t got: %q", wantQuoted, s)
+	}
+}
+
+func TestMediaType_unmarshaling(t *testing.T) {
+	t.Parallel()
+
+	got := new(mediatype.MediaType)
+	if err := json.Unmarshal([]byte(`"text/svg+xml; charset=utf-8"`), got); err != nil {
+		t.Fatal(err)
+	}
+	want := &mediatype.MediaType{
+		Type:       "text",
+		SubType:    "svg+xml",
+		Parameters: map[string]string{"charset": "utf-8"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("unmarshal failed:\n\twant: %#v\n\t got: %#v", want, got)
+	}
+}
 
 func TestParse(t *testing.T) {
 	t.Parallel()
